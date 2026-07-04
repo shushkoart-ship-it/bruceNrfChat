@@ -131,8 +131,6 @@ That’s it! Start typing and send your first encrypted message.
 
 ---
 
-## 📁 Script files
-
 ## 🧩 Supported Devices
 
 bruceNrfChat provides ready‑to‑run scripts for the following devices:
