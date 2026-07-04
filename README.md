@@ -28,15 +28,15 @@
 
 ## Supported Devices
 
-| Device | Script |
-|--------|--------|
-| Smoochiee V2 | `bruceNrfChat_v2.js` |
-| LilyGO T‑Embed CC1101 | (same – adjust pins) |
-| M5Stack Cardputer | (same – adjust pins) |
-| M5StickC Plus2 | (same – adjust pins) |
-| LilyGO T‑Display S3 | (same – adjust pins) |
-| CYD‑2432S028 | (same – adjust pins) |
-| Custom ESP32‑S3 | (same – edit pins at top) |
+| Device |
+|--------|
+| Smoochiee V2 |
+| LilyGO T‑Embed CC1101 |
+| M5Stack Cardputer |
+| M5StickC Plus2 |
+| LilyGO T‑Display S3 |
+| CYD‑2432S028 |
+| Custom ESP32‑S3 |
 
 All devices now use the **same unified script** – just change the pin definitions at the beginning.
 
