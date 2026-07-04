@@ -1,182 +1,181 @@
-# bruceNrfChat
+# bruceNrfChat 🔐
 
-**A text chat application for ESP32-S3 devices using nRF24L01+ modules and Bruce firmware.**
-
----
-
-## About
-
-bruceNrfChat is a lightweight, real‑time messaging tool that runs on ESP32‑S3 devices with the Bruce firmware. It uses nRF24L01+ radio modules to establish a direct wireless link between two devices, allowing them to exchange text messages without Wi‑Fi, Bluetooth, or the Internet.
-
-The project is written in JavaScript and runs directly from an SD card – no firmware recompilation is needed.
+**Encrypted text chat for ESP32‑S3 devices**  
+Using nRF24L01+ radios, Bruce firmware, and Diffie‑Hellman key exchange.
 
 ---
 
-## Features
+## ✨ What makes it special?
 
-- Real‑time text messaging between two devices.
-- Virtual QWERTY keyboard with navigation via physical buttons.
-- Two communication roles: **Initiator** (sends first) and **Responder** (waits and replies).
-- Automatic RF channel and data rate configuration for optimal range.
-- Pre‑defined keyboard layout with letters, numbers, punctuation, and control keys (SPACE, BACK, CLEAR, SEND).
-- Ready‑to‑use scripts for two popular boards (Smoochiee V2 and LilyGO T‑Embed CC1101).
-- **Easily adaptable** to any ESP32‑S3 board – just adjust the pin definitions at the top of the script.
+- 🔐 **End‑to‑end encryption** – Diffie‑Hellman + XOR (no plaintext over the air).  
+- 🎮 **Full‑screen virtual keyboard** – type messages with physical buttons.  
+- 📡 **No Wi‑Fi, no Internet** – pure radio communication up to ~100 m (with PA/LNA).  
+- 🧩 **Works on multiple boards** – Smoochiee V2, LilyGO T‑Embed, and any ESP32‑S3 with nRF24.  
+- ⚡ **Instant startup** – runs from SD card, no firmware rebuild needed.
 
 ---
 
-## Supported Devices (out‑of‑the‑box)
+## 🧠 How it works (in 30 seconds)
 
-| Device | Script File |
-|--------|-------------|
-| **Smoochiee V2** | `bruceNrfChat_smoochiee.js` |
-| **LilyGO T‑Embed CC1101** | `bruceNrfChat_t-embed.js` |
+1. **Both devices** generate a random private key and a public key.
+2. **They exchange public keys** via nRF24.
+3. **Each computes a shared secret** using Diffie‑Hellman.
+4. **All messages** are XOR‑encrypted with that secret.
+5. **Nobody else** can decrypt the traffic – even if they capture every byte.
 
-For other ESP32‑S3 boards, simply change the `nrfCE`, `nrfCSN`, and button pin numbers in the script – no other modifications are required.
-
----
-
-## Requirements
-
-- Bruce firmware (v1.15 or newer) on both devices.
-- nRF24L01+ module (with or without PA/LNA) connected to each device.
-- SD card (FAT32) to store the script.
-- A second device to exchange messages.
-
----
-
-## Installation and Setup
-
-### 1. Prepare Your Device
-
-Make sure your device runs Bruce firmware and that the nRF24 module is properly wired.
-
-### 2. Copy the Script
-
-- Download the script for your board:
-  - `bruceNrfChat_smoochiee.js` for Smoochiee V2.
-  - `bruceNrfChat_t-embed.js` for LilyGO T‑Embed.
-- If you have a different board, use either script and edit the pin definitions at the top.
-- Copy the script to the root directory of your SD card.
-- Insert the SD card into the device.
-
-### 3. Adjust Pins (if needed)
-
-If your wiring differs from the default, open the script and modify these variables:
-
-```javascript
-var nrfCE   = 9;   // Chip Enable
-var nrfCSN  = 8;   // Chip Select (CS)
-var nrfSCK  = 14;  // SPI Clock
-var nrfMOSI = 13;  // SPI Master Out Slave In
-var nrfMISO = 12;  // SPI Master In Slave Out
-
-// Button pins (adjust for your board)
-var btnUP     = 5;
-var btnDOWN   = 39;
-var btnLEFT   = 40;
-var btnRIGHT  = 41;
-var btnSELECT = 16;
-var btnBACK   = 42;
+```
+[Alice]                [Bob]
+   |                      |
+   |  Public key A        |
+   |--------------------->|
+   |                      |
+   |  Public key B        |
+   |<---------------------|
+   |                      |
+   |  Shared secret S     |
+   |  (computed locally)  |
+   |                      |
+   |  Encrypted message   |
+   |--------------------->|
+   |                      |
+   |  Decrypted message   |
+   |                      |
 ```
 
-Save the file and re‑insert the SD card.
-
-### 4. Run the Script
-
-1. On your device, open the Bruce menu.
-2. Navigate to **Scripts** → select your script file.
-3. The virtual keyboard will appear.
+> The encryption is lightweight (XOR) – perfect for ESP32. For stronger security, we’ll add AES in a future release.
 
 ---
 
-## How to Use
+## 🖥️ What you see on the display
 
-### Roles: Initiator and Responder
+### Virtual keyboard
+```
+Chat (Initiator)
+Text: Hello_
+[1][2][3][4][5][6][7][8][9][0]
+ Q W E R T Y U I O P
+ A S D F G H J K L ;
+ Z X C V B N M , . ?
+[SPACE][BACK][CLEAR][SEND]
+Keys: UP/DOWN/LEFT/RIGHT | SELECT=choose | BACK=exit
+```
 
-One device must act as the **Initiator** (sends the first message), the other as the **Responder** (waits for a message).
+### Chat mode
+```
+Chat (Initiator)
+----------------
+You: Hello, how are you?
+Other: I'm fine, thanks!
+----------------
+Press SELECT to return to keyboard
+```
 
-- **To start as Responder:** Press and hold the **UP** button while the script is starting (during the splash screen). The device will wait for an incoming message.
-- **To start as Initiator:** Run the script normally (without holding UP). This device will send the first message.
+---
 
-> The current role is displayed in the top‑left corner of the screen.
+## 🚀 Real‑world use cases
 
-### Virtual Keyboard Controls
+- **Secure messaging between two friends** – no cellular, no Wi‑Fi needed.
+- **Field communication** for events, camps, or remote areas.
+- **Educational demo** of Diffie‑Hellman and encryption on embedded systems.
+- **Backup channel** when normal networks are down.
+
+---
+
+## 📦 What you need
+
+- 2x ESP32‑S3 devices (any board with Bruce firmware)
+- 2x nRF24L01+ modules (PA/LNA recommended for longer range)
+- 2x SD cards (FAT32)
+- A few wires and buttons (or a board with built‑in buttons)
+
+---
+
+## 🛠️ Setup in 3 steps
+
+### 1. Flash Bruce
+Install Bruce firmware (v1.15+) on both devices via Web Flasher or `esptool`.
+
+### 2. Wire nRF24
+Connect nRF24 to your ESP32‑S3:
+
+| nRF24 pin | ESP32‑S3 (default) |
+|-----------|-------------------|
+| VCC       | 3.3V              |
+| GND       | GND               |
+| CE        | GPIO 9            |
+| CSN       | GPIO 8            |
+| SCK       | GPIO 14           |
+| MOSI      | GPIO 13           |
+| MISO      | GPIO 12           |
+
+*If your board differs, edit the pin numbers in the script.*
+
+### 3. Run the script
+- Copy `bruceNrfChat_smoochiee.js` (or `_t-embed.js`) to SD card root.
+- Insert SD card, open Bruce menu → **Scripts** → select the file.
+- On **one** device, hold **UP** during startup – it becomes the **Responder**.
+- On the **other**, start normally – it becomes the **Initiator**.
+
+That’s it! Start typing and send your first encrypted message.
+
+---
+
+## 🎮 Controls
 
 | Button | Action |
 |--------|--------|
-| **UP / DOWN** | Move vertically across keyboard rows. |
-| **LEFT / RIGHT** | Move horizontally across columns. |
-| **SELECT** | Select the highlighted key. |
-| **BACK** | In keyboard mode – send the current message and switch to chat view. In chat view – return to the keyboard. |
-
-**Special keys on the keyboard:**
-- `SPACE` – add a space.
-- `BACK` – delete the last character.
-- `CLEAR` – clear the entire text.
-- `SEND` – send the typed message and switch to chat mode.
-
-### Chat Mode
-
-After sending a message, the display switches to **Chat Mode**, showing:
-- Your sent message.
-- Any incoming message from the other device.
-- Instructions to return to the keyboard.
-
-Press **SELECT** or **BACK** to go back and type another message.
+| **UP** / **DOWN** | Navigate keyboard rows |
+| **LEFT** / **RIGHT** | Navigate columns |
+| **SELECT** | Pick a character / send message |
+| **BACK** | Send current message & switch to chat |
 
 ---
 
-## Troubleshooting
+## 📁 Script files
 
-| Issue | Solution |
-|-------|----------|
-| **"NRF24 not configured"** error | Check your pin definitions in the script or `brucePins.conf`. |
-| **No messages received** | Ensure both devices use the same channel (default 100) and data rate (250kbps). Verify power and range. |
-| **Display shows garbage** | Confirm that the display driver (ST7789) is correctly initialized by Bruce. Try a different Bruce build. |
-| **Buttons don't respond** | Double‑check button pin numbers in the script – they may differ between boards. |
-| **Script doesn't start** | Make sure the file is saved with UTF‑8 encoding, Unix (LF) line endings, and `.js` extension. |
+| File | Device |
+|------|--------|
+| `bruceNrfChat_smoochiee.js` | Smoochiee V2 (5 buttons) |
+| `bruceNrfChat_t-embed.js` | LilyGO T‑Embed CC1101 |
 
----
-
-## Adapting to Other Boards
-
-To use bruceNrfChat on a different ESP32‑S3 board:
-
-1. Open the script file.
-2. Change the `nrfCE`, `nrfCSN`, and button pins to match your wiring.
-3. If your display resolution differs, you may also need to adjust the keyboard layout (optional).
-4. Save and run – that's it.
-
-No other code changes are needed.
+For other boards, use either file and adjust the pin definitions at the top.
 
 ---
 
-## Contributing
+## 🛡️ Security note
 
-Contributions are welcome! If you want to add a new feature, fix a bug, or improve documentation:
-
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature/your-feature`).
-3. Commit your changes (`git commit -m 'Add some feature'`).
-4. Push to the branch (`git push origin feature/your-feature`).
-5. Open a Pull Request.
-
-Please follow the existing code style and include relevant comments.
+The current encryption uses **XOR + Diffie‑Hellman**. It is **demonstration‑grade** – it prevents casual sniffing but is not resistant to advanced cryptanalysis. A future update will replace XOR with **AES‑128** for better protection.
 
 ---
 
-## License
+## 📈 Future plans
 
-This project is licensed under the **MIT License** – see the [LICENSE](LICENSE) file for details.
-
----
-
-## Acknowledgments
-
-- The Bruce firmware team for creating an amazing platform.
-- The nRF24L01+ community for reliable wireless modules.
-- All testers and contributors.
+- ✅ Diffie‑Hellman key exchange  
+- ✅ XOR encryption  
+- 🔜 AES‑128 encryption (with a tiny library)  
+- 🔜 Save chat history to SD card  
+- 🔜 Support for CC1101 (sub‑GHz) as an alternative  
 
 ---
 
-**Built with ❤️ by the bruceNrfChat community.**
+## 🤝 Contribute
+
+We welcome contributions! Fork the repo, create a branch, and send a Pull Request.
+
+---
+
+## 📜 License
+
+MIT – see [LICENSE](LICENSE) for details.
+
+---
+
+## 🙏 Thanks
+
+- [Bruce firmware](https://bruce.computer) – the soul of this project.
+- nRF24 community – for keeping the radio alive.
+- You – for building your own secure chat!
+
+---
+
+**Made with 💙 by the bruceNrfChat community.**
