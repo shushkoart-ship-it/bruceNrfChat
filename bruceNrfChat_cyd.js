@@ -25,6 +25,11 @@ var maxHistory = 50;
 var logFile = "/chat_log.txt";
 var msgCounter = 0;
 var lastTypingTime = 0;
+var ackTimeout = 2000;
+var dhTimeout = 5000;
+var historyTimeout = 10000;
+var historyTimer = 0;
+var lastIncomingTime = 0;
 
 var p = 2147483647;
 var g = 5;
@@ -50,7 +55,14 @@ function getDeviceID() {
 }
 
 myID = getDeviceID();
-nrf.init(nrfSCK, nrfMISO, nrfMOSI, nrfCSN, nrfCE);
+
+if (!nrf.init(nrfSCK, nrfMISO, nrfMOSI, nrfCSN, nrfCE)) {
+    display.clear();
+    display.println("NRF24 init failed");
+    display.println("Check wiring and power");
+    while (true) { delay(1000); }
+}
+
 nrf.setChannel(100);
 nrf.setDataRate("250kbps");
 nrf.setPower("max");
@@ -81,7 +93,11 @@ function saveHistory() {
         var entry = history[i];
         log += (entry.role === "me" ? "Me" : "Other") + ": " + entry.text + (entry.delivered ? " ✓" : " ...") + "\n";
     }
-    storage.write(logFile, log);
+    var result = storage.write(logFile, log);
+    if (!result) {
+        display.println("SD write error");
+        delay(500);
+    }
 }
 
 function addHistory(roleText, text, delivered) {
@@ -95,9 +111,13 @@ function drawDiscovery() {
     display.println("=== Discover ===");
     display.println("My ID: " + myID);
     display.println("Found devices:");
-    for (var i = 0; i < foundDevices.length; i++) {
-        var prefix = (i == selectedDevice) ? ">" : " ";
-        display.println(prefix + foundDevices[i]);
+    if (foundDevices.length == 0) {
+        display.println("(none)");
+    } else {
+        for (var i = 0; i < foundDevices.length; i++) {
+            var prefix = (i == selectedDevice) ? ">" : " ";
+            display.println(prefix + foundDevices[i]);
+        }
     }
     display.println("UP/DOWN select | SELECT request");
 }
@@ -140,16 +160,19 @@ function drawHistory() {
         display.println(prefix + ": " + entry.text + status);
     }
     display.println("--- SELECT=back ---");
+    historyTimer = millis();
 }
 
 function sendMessage(msg) {
     if (!dhComplete) return;
     var encrypted = encryptDecrypt(msg, sharedSecret);
     var packet = "MSG:" + msgCounter + ":" + encrypted;
+    var delayMs = Math.random() * 100;
+    delay(delayMs);
     nrf.send(packet);
     var ackReceived = false;
     var startTime = millis();
-    while (millis() - startTime < 1000) {
+    while (millis() - startTime < ackTimeout) {
         var incoming = nrf.receive();
         if (incoming != null && incoming != "") {
             if (incoming.indexOf("ACK:") == 0) {
@@ -186,23 +209,25 @@ function discoveryLoop() {
             }
         }
     }
-    if (gpio.read(btnUP) == 0) {
-        selectedDevice = (selectedDevice - 1 + foundDevices.length) % foundDevices.length;
-        drawDiscovery();
-        delay(200);
-    }
-    if (gpio.read(btnDOWN) == 0) {
-        selectedDevice = (selectedDevice + 1) % foundDevices.length;
-        drawDiscovery();
-        delay(200);
-    }
-    if (gpio.read(btnSELECT) == 0 && foundDevices.length > 0) {
-        var target = foundDevices[selectedDevice];
-        nrf.send("REQUEST:" + myID + ":" + target);
-        mode = "request";
-        display.clear();
-        display.println("Waiting for response...");
-        delay(200);
+    if (foundDevices.length > 0) {
+        if (gpio.read(btnUP) == 0) {
+            selectedDevice = (selectedDevice - 1 + foundDevices.length) % foundDevices.length;
+            drawDiscovery();
+            delay(200);
+        }
+        if (gpio.read(btnDOWN) == 0) {
+            selectedDevice = (selectedDevice + 1) % foundDevices.length;
+            drawDiscovery();
+            delay(200);
+        }
+        if (gpio.read(btnSELECT) == 0) {
+            var target = foundDevices[selectedDevice];
+            nrf.send("REQUEST:" + myID + ":" + target);
+            mode = "request";
+            display.clear();
+            display.println("Waiting for response...");
+            delay(200);
+        }
     }
     delay(50);
 }
@@ -263,15 +288,46 @@ function requestLoop() {
 
 function dhLoop() {
     if (!dhComplete) {
+        var startTime = millis();
         if (myID < chatPartner) {
             nrf.send(publicKey.toString());
-            var received = nrf.receive();
-            while (received == null || received == "") { delay(100); received = nrf.receive(); }
+            var received = null;
+            while (millis() - startTime < dhTimeout) {
+                received = nrf.receive();
+                if (received != null && received != "") break;
+                delay(50);
+            }
+            if (received == null || received == "") {
+                display.clear();
+                display.println("DH timeout");
+                display.println("Returning to discovery");
+                delay(1500);
+                mode = "discovery";
+                dhComplete = false;
+                chatPartner = null;
+                drawDiscovery();
+                return;
+            }
             var otherPublic = parseInt(received);
             sharedSecret = modPow(otherPublic, privateKey, p);
         } else {
-            var received = nrf.receive();
-            while (received == null || received == "") { delay(100); received = nrf.receive(); }
+            var received = null;
+            while (millis() - startTime < dhTimeout) {
+                received = nrf.receive();
+                if (received != null && received != "") break;
+                delay(50);
+            }
+            if (received == null || received == "") {
+                display.clear();
+                display.println("DH timeout");
+                display.println("Returning to discovery");
+                delay(1500);
+                mode = "discovery";
+                dhComplete = false;
+                chatPartner = null;
+                drawDiscovery();
+                return;
+            }
             var otherPublic = parseInt(received);
             nrf.send(publicKey.toString());
             sharedSecret = modPow(otherPublic, privateKey, p);
@@ -334,6 +390,7 @@ function chatLoop() {
     }
     var incoming = nrf.receive();
     if (incoming != null && incoming != "") {
+        lastIncomingTime = millis();
         if (incoming == "TYP") {
             display.clear();
             display.println("Other is typing...");
@@ -343,12 +400,26 @@ function chatLoop() {
             var parts = incoming.substring(4).split(":");
             var msgId = parseInt(parts[0]);
             var encryptedText = parts.slice(1).join(":");
-            var decrypted = encryptDecrypt(encryptedText, sharedSecret);
-            receivedText = decrypted;
-            addHistory("other", decrypted, true);
-            nrf.send("ACK:" + msgId);
-            drawKeyboard();
+            if (!window.receivedIds) window.receivedIds = [];
+            if (window.receivedIds.indexOf(msgId) == -1) {
+                window.receivedIds.push(msgId);
+                var decrypted = encryptDecrypt(encryptedText, sharedSecret);
+                receivedText = decrypted;
+                addHistory("other", decrypted, true);
+                nrf.send("ACK:" + msgId);
+                drawKeyboard();
+            }
         }
+    }
+    if (millis() - lastIncomingTime > 5000 && dhComplete) {
+        display.clear();
+        display.println("Connection lost");
+        display.println("Returning to discovery");
+        delay(1500);
+        mode = "discovery";
+        dhComplete = false;
+        chatPartner = null;
+        drawDiscovery();
     }
     delay(50);
 }
@@ -358,6 +429,13 @@ function historyLoop() {
         mode = "chat";
         drawKeyboard();
         delay(200);
+        return;
+    }
+    if (millis() - historyTimer > historyTimeout) {
+        mode = "chat";
+        drawKeyboard();
+        delay(200);
+        return;
     }
     delay(50);
 }
